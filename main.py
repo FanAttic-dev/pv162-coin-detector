@@ -59,7 +59,7 @@ def detect_circles(img_color, show_edges=False):
             save_circles(img_color, circles)
             break
 
-        if key == ord('q') or key == ord('n') or key == ord('p'):
+        if (key == ord('q')) or (key == ord('n')) or (key == ord('p')):
             break
 
     return key
@@ -118,7 +118,8 @@ if __name__ == '__main__':
     class_orig_dir_path = class_path + "/original"
     class_image_names = os.listdir(class_orig_dir_path)
 
-    for i in range(len(class_image_names)):
+    i = 0
+    while i < len(class_image_names):
         image_name = class_image_names[i]
         image_path = class_orig_dir_path + "/" + image_name
 
@@ -133,12 +134,12 @@ if __name__ == '__main__':
 
         if key == ord('p'):
             i -= 1
-            continue
-
-        if key == ord('n'):
+            print(i)
             continue
 
         if key == ord('q'):
             break
+
+        i += 1
 
     cv2.destroyAllWindows()
