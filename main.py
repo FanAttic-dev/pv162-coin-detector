@@ -1,20 +1,15 @@
+import os
 import cv2
-
 import numpy as np
-import matplotlib.pyplot as plt
 
-from skimage import data, color, img_as_ubyte
-from skimage import io
-from skimage.transform import hough_circle, hough_circle_peaks, hough_ellipse
-from skimage.feature import canny
-from skimage.draw import circle_perimeter, ellipse_perimeter
-
+BASE_DIR_PATH = "../IMAGES/Coins/CZK"
+CLASS = "1"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
 
 
-def nothing(x):
+def nothing(_):
     pass
 
 
@@ -22,8 +17,52 @@ def create_main_window():
     # create window
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
     cv2.createTrackbar('MinDist', WINDOW_NAME, 100, 800, nothing)
-    cv2.createTrackbar('CannyHigh', WINDOW_NAME, 150, 800, nothing)
+    cv2.createTrackbar('CannyHigh', WINDOW_NAME, 400, 800, nothing)
     cv2.createTrackbar('AccTh', WINDOW_NAME, 75, 200, nothing)
+
+
+def resize_image(img_color):
+    w, h = img_color.shape[:2]
+    longer_edge = max(w, h)
+    scale_factor = LONGER_EDGE_SIZE / longer_edge
+    new_size = (int(h * scale_factor), int(w * scale_factor))
+    return cv2.resize(img_color, new_size)
+
+
+def detect_circles(img_color, show_edges=False):
+    # check dimensions
+    if max(img.shape[:2]) > LONGER_EDGE_SIZE:
+        raise Exception('image too large')
+
+    while True:
+        # get params
+        min_dist = cv2.getTrackbarPos('MinDist', WINDOW_NAME)
+        canny_high = cv2.getTrackbarPos('CannyHigh', WINDOW_NAME)
+        acc_threshold = cv2.getTrackbarPos('AccTh', WINDOW_NAME)
+
+        # find circles
+        circles = find_circles_in_image(img_color, min_dist, canny_high, acc_threshold)
+
+        # visualize
+        img_color_circles = draw_circles_into_image(img_color, circles)
+
+        if show_edges:
+            img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(img_gray, canny_high/2, canny_high)
+            cv2.imshow("CannyWindow", edges)
+
+        cv2.imshow(WINDOW_NAME, img_color_circles)
+
+        key = cv2.waitKey(1) % 256
+        if key == ord('s'):
+            # save
+            save_circles(img_color, circles)
+            break
+
+        if key == ord('q') or key == ord('n') or key == ord('p'):
+            break
+
+    return key
 
 
 def find_circles_in_image(img_color, min_dist, canny_high, acc_threshold, show_edges=True):
@@ -32,10 +71,6 @@ def find_circles_in_image(img_color, min_dist, canny_high, acc_threshold, show_e
 
     # blur
     img_gray = cv2.GaussianBlur(img_gray, (7, 7), 1.5)
-
-    if show_edges:
-        edges = cv2.Canny(img_gray, canny_high/2, canny_high)
-        cv2.imshow("CannyWindow", edges)
 
     return cv2.HoughCircles(img_gray, cv2.HOUGH_GRADIENT, 1.5, minDist=min_dist, param1=canny_high, param2=acc_threshold)
 
@@ -75,50 +110,35 @@ def save_circles(img_color, circles):
     cv2.destroyWindow("roi")
 
 
-def detect_circles(window_name, img_color, show_edges=False):
-    if max(img.shape[:2]) > LONGER_EDGE_SIZE:
-        raise Exception('image too large')
-
-    while True:
-        min_dist = cv2.getTrackbarPos('MinDist', window_name)
-        canny_high = cv2.getTrackbarPos('CannyHigh', window_name)
-        acc_threshold = cv2.getTrackbarPos('AccTh', window_name)
-
-        circles = find_circles_in_image(img_color, min_dist, canny_high, acc_threshold, show_edges=show_edges)
-
-        img_color_circles = draw_circles_into_image(img_color, circles)
-
-        cv2.imshow(window_name, img_color_circles)
-
-        key = cv2.waitKey(1) % 256
-
-        if key == ord('s'):
-            save_circles(img_color, circles)
-        elif key == ord('q'):
-            print("q")
-            break
-
-
-def resize_image(img_color):
-    w, h = img_color.shape[:2]
-    longer_edge = max(w, h)
-    scale_factor = LONGER_EDGE_SIZE / longer_edge
-    new_size = (int(h * scale_factor), int(w * scale_factor))
-    return cv2.resize(img_color, new_size)
-
-
 if __name__ == '__main__':
     create_main_window()
 
     # open image
-    many_coins_path = "../IMAGES/Coins/CZK/1/original/IMG_20201118_155626.jpg"
-    img = cv2.imread(many_coins_path)
+    class_path = BASE_DIR_PATH + "/" + CLASS
+    class_orig_dir_path = class_path + "/original"
+    class_image_names = os.listdir(class_orig_dir_path)
 
-    # resize image
-    img = resize_image(img)
+    for i in range(len(class_image_names)):
+        image_name = class_image_names[i]
+        image_path = class_orig_dir_path + "/" + image_name
 
-    # detect circles
-    detect_circles(WINDOW_NAME, img)
+        # open image
+        img = cv2.imread(image_path)
+
+        # resize image
+        img = resize_image(img)
+
+        # detect circles
+        key = detect_circles(img, True)
+
+        if key == ord('p'):
+            i -= 1
+            continue
+
+        if key == ord('n'):
+            continue
+
+        if key == ord('q'):
+            break
 
     cv2.destroyAllWindows()
-
