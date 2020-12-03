@@ -7,7 +7,7 @@ from matplotlib.widgets import Button
 import math
 
 BASE_DIR_PATH = "../IMAGES/Coins/CZK"
-CLASS = "1"
+CLASS = "50"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
@@ -90,7 +90,6 @@ def detect_circles(img, show_edges=False):
         key = cv2.waitKey(1) % 256
         if key == ord('s'):
             extract_circles(img, circles)
-            print("extracted, out")
 
         if (key == ord('q')) or (key == ord('n')) or (key == ord('p')):
             break
@@ -129,7 +128,7 @@ def save_circles(img):
         name, extension = os.path.splitext(img.name)
         path = img.dir_path + "/" + name + "_" + str(i+1) + extension
         print("Saving into " + path)
-        #cv2.imwrite(path, img.rois[i])
+        cv2.imwrite(path, img.rois[i])
 
     print()
     plt.close()
