@@ -7,17 +7,32 @@ from matplotlib.widgets import Button
 import math
 
 BASE_DIR_PATH = "../IMAGES/Coins/CZK"
-CLASS = "2"
+CLASS = "1"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
+EQUALIZE_HIST = True
 
 
 class Image:
-    def __init__(self, image_name, dir):
+    def __init__(self, image_name, dir_path, orig_dir_path, resize_image=True, equalize_hist=True):
         self.name = image_name
-        self.dir = dir
-        self.img_color = cv2.imread(dir + "/" + image_name)
+        self.dir_path = dir_path
+        self.orig_dir_path = orig_dir_path
+        self.img_color = cv2.imread(orig_dir_path + "/" + image_name)
+
+        if resize_image:
+            self.resize()
+
+        clahe_clip_limit = cv2.getTrackbarPos('ClaheClipLimit', WINDOW_NAME)
+        if equalize_hist and clahe_clip_limit > 0:
+            hsv = cv2.cvtColor(self.img_color, cv2.COLOR_BGR2HSV)
+            hue, saturation, value = cv2.split(hsv)
+            clahe = cv2.createCLAHE(clipLimit=clahe_clip_limit, tileGridSize=(10, 10))
+            value = clahe.apply(value)
+            hsv = cv2.merge((hue, saturation, value))
+            self.img_color = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
         self.img_gray = cv2.cvtColor(self.img_color, cv2.COLOR_BGR2GRAY)
         self.rois = []
 
@@ -38,6 +53,7 @@ def create_trackbars():
     cv2.createTrackbar('MinDist', WINDOW_NAME, 100, 800, nothing)
     cv2.createTrackbar('CannyHigh', WINDOW_NAME, 400, 800, nothing)
     cv2.createTrackbar('AccTh', WINDOW_NAME, 75, 200, nothing)
+    cv2.createTrackbar('ClaheClipLimit', WINDOW_NAME, 2, 60, nothing)
 
 
 def init_mpl():
@@ -51,6 +67,9 @@ def detect_circles(img, show_edges=False):
     if max(img.img_color.shape[:2]) > LONGER_EDGE_SIZE:
         raise Exception('image too large')
 
+    if show_edges:
+        cv2.namedWindow("CannyWindow", cv2.WINDOW_NORMAL)
+
     while True:
         # get params
         min_dist = cv2.getTrackbarPos('MinDist', WINDOW_NAME)
@@ -59,7 +78,6 @@ def detect_circles(img, show_edges=False):
 
         if show_edges:
             edges = cv2.Canny(img.img_gray, canny_high / 2, canny_high)
-            cv2.namedWindow("CannyWindow", cv2.WINDOW_NORMAL)
             cv2.imshow("CannyWindow", edges)
 
         # find circles
@@ -72,6 +90,7 @@ def detect_circles(img, show_edges=False):
         key = cv2.waitKey(1) % 256
         if key == ord('s'):
             extract_circles(img, circles)
+            print("extracted, out")
 
         if (key == ord('q')) or (key == ord('n')) or (key == ord('p')):
             break
@@ -106,14 +125,14 @@ def draw_circles_into_image(img_color, circles):
 
 
 def save_circles(img):
-    print(len(img.rois))
     for i in range(len(img.rois)):
-        path = img.dir + "/../" + str(i) + "_" + img.name
-        print("Save " + path)
-        # TODO save
+        name, extension = os.path.splitext(img.name)
+        path = img.dir_path + "/" + name + "_" + str(i+1) + extension
+        print("Saving into " + path)
+        #cv2.imwrite(path, img.rois[i])
 
     print()
-    plt.close('all')
+    plt.close()
 
 
 def extract_circles(img_color, circles):
@@ -139,21 +158,18 @@ def extract_circles(img_color, circles):
         img_color.rois.append(roi)
         plt.imshow(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
 
-    plt.show()
+    plt.show(block=False)
 
 
 def process_class(class_name):
-    class_path = BASE_DIR_PATH + "/" + class_name
-    class_orig_dir_path = class_path + "/original"
-    class_image_names = os.listdir(class_orig_dir_path)
+    class_dir_path = BASE_DIR_PATH + "/" + class_name
+    class_orig_dir_path = BASE_DIR_PATH + "/original/" + class_name
 
     i = 0
+    class_image_names = os.listdir(class_orig_dir_path)
     while i < len(class_image_names):
         image_name = class_image_names[i]
-        img = Image(image_name, class_orig_dir_path)
-
-        # resize image
-        img.resize()
+        img = Image(image_name, class_dir_path, class_orig_dir_path, resize_image=True, equalize_hist=EQUALIZE_HIST)
 
         # detect circles
         key = detect_circles(img, show_edges=True)
@@ -170,9 +186,11 @@ def process_class(class_name):
 
 
 if __name__ == '__main__':
+    # init GUI
     init_mpl()
     create_trackbars()
 
+    # load, visualize and save a class
     process_class(CLASS)
 
     cv2.destroyAllWindows()
