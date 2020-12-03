@@ -6,8 +6,9 @@ import matplotlib as mpl
 from matplotlib.widgets import Button
 import math
 
-BASE_DIR_PATH = "../IMAGES/Coins/CZK"
-CLASS = "50"
+TRAIN_DIR_PATH = "../IMAGES/Coins/CZK"
+ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK_test"
+CLASS = "1"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
@@ -161,8 +162,8 @@ def extract_circles(img_color, circles):
 
 
 def process_class(class_name):
-    class_dir_path = BASE_DIR_PATH + "/" + class_name
-    class_orig_dir_path = BASE_DIR_PATH + "/original/" + class_name
+    class_dir_path = TRAIN_DIR_PATH + "/" + class_name
+    class_orig_dir_path = ORIGINAL_DIR_PATH + "/original/" + class_name
 
     i = 0
     class_image_names = os.listdir(class_orig_dir_path)
