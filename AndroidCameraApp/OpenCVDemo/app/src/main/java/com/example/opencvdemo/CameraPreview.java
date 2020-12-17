@@ -1,6 +1,7 @@
 package com.example.opencvdemo;
 
 import android.content.Context;
+
 import android.hardware.Camera;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;

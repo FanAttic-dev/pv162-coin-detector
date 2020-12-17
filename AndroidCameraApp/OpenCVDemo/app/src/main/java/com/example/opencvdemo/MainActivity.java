@@ -1,142 +1,65 @@
 package com.example.opencvdemo;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.Manifest;
-import android.app.ActivityManager;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
+
 import android.graphics.Bitmap;
-import android.hardware.Camera;
-import android.os.Build;
+
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.util.AttributeSet;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import android.widget.FrameLayout;
+
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String[] PERMISSIONS = {
-            Manifest.permission.CAMERA
-    };
+    private static int IMAGE_CAPTURE_CODE = 1;
 
-    private static final int REQUEST_PERMISSIONS = 34;
+    private ImageView mImageView;
+    private Button mCaptureBtn;
+    private Button mDetectBtn;
 
-    private boolean isCameraInitialized = false;
-
-    private static Camera mCamera;
-
-    private static CameraPreview mCameraPreview;
-
-    private FrameLayout mFrameLayout;
+    private Bitmap mBitmap;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        //startActivityForResult(intent, 0);
-    }
+        mImageView = findViewById(R.id.imageView);
+        mCaptureBtn = findViewById(R.id.captureBtn);
+        mDetectBtn = findViewById(R.id.detectBtn);
+        mDetectBtn.setEnabled(false);
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        if (arePermissionsDenied()) {
-            requestPermissions(PERMISSIONS, REQUEST_PERMISSIONS);
-        }
-
-        if (!isCameraInitialized) {
-            initCamera();
-        }
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private boolean arePermissionsDenied() {
-        for (String permission : PERMISSIONS) {
-            if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED)
-                return true;
-        }
-        return false;
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == REQUEST_PERMISSIONS && grantResults.length > 0) {
-            if (arePermissionsDenied()) {
-                ((ActivityManager) (this.getSystemService(ACTIVITY_SERVICE))).clearApplicationUserData();
-                recreate();
-            } else {
-                onResume();
+        mCaptureBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                startActivityForResult(intent, IMAGE_CAPTURE_CODE);
             }
-        }
-    }
-
-    private void initCamera() {
-        if (isCameraInitialized)
-            return;
-
-        mCamera = Camera.open();
-        mCameraPreview = new CameraPreview(this, mCamera);
-        mFrameLayout = findViewById(R.id.frameLayout);
-        mFrameLayout.addView(mCameraPreview);
-        rotateCamera();
-
-        Camera.Parameters params = mCamera.getParameters();
-        params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
-        mCamera.setParameters(params);
-    }
-
-    private void rotateCamera() {
-        if (mCamera == null)
-            return;
-
-        int rotation = this.getWindowManager().getDefaultDisplay().getRotation();
-        switch (rotation) {
-            case 0:
-                rotation = 90;
-                break;
-            case 1:
-                rotation = 0;
-                break;
-            case 2:
-                rotation = 270;
-                break;
-            default:
-                rotation = 180;
-                break;
-        }
-
-        mCamera.setDisplayOrientation(rotation);
+        });
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 
-        releaseCamera();
-    }
-
-    private void releaseCamera() {
-        if (mCamera == null)
+        if (requestCode != IMAGE_CAPTURE_CODE)
             return;
 
-        mFrameLayout.removeView(mCameraPreview);
-        mCamera.release();
-        mCamera = null;
+        if (resultCode == RESULT_OK) {
+            mBitmap = (Bitmap) data.getExtras().get("data");
+            mImageView.setImageBitmap(mBitmap);
+            mDetectBtn.setEnabled(true);
+        } else if (resultCode == RESULT_CANCELED) {
+            Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show();
+        }
     }
 }
