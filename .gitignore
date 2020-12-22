@@ -1,6 +1,7 @@
 .idea
 .ipynb_checkpoints
 
+OpenCV-android-sdk
 
 # Android Studio Navigation editor temp files
 .navigation/
