@@ -19,12 +19,19 @@ import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.RectF;
+import android.os.Build;
 import android.os.Trace;
 import android.util.Log;
 
+import androidx.annotation.RequiresApi;
+
 import org.opencv.android.Utils;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Rect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.tensorflow.lite.Interpreter;
@@ -38,6 +45,7 @@ import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -68,11 +76,12 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
   private static final int ROI_SIZE = 180;
   // Pre-allocated buffers.
   private final List<String> labels = new ArrayList<>();
-  //private int[] intValues;
+  private int[] intValues;
+  private int inputSize;
   // contains the scores of the detected coin
   private float[] outputScores;
 
-  private ByteBuffer roi;
+  private ByteBuffer roi_buffer;
 
   private MappedByteBuffer tfLiteModel;
   private Interpreter.Options tfLiteOptions;
@@ -132,14 +141,13 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       }
     }
 
-    //d.inputSize = inputSize;
-
     try {
       Interpreter.Options options = new Interpreter.Options();
       options.setNumThreads(NUM_THREADS);
       d.tfLite = new Interpreter(modelFile, options);
       d.tfLiteModel = modelFile;
       d.tfLiteOptions = options;
+      d.inputSize = inputSize;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -152,9 +160,9 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
     } else {
       numBytesPerChannel = 4; // Floating point
     }
-    d.roi = ByteBuffer.allocateDirect(ROI_SIZE * ROI_SIZE * 3 * numBytesPerChannel);
-    d.roi.order(ByteOrder.nativeOrder());
-    //d.intValues = new int[d.inputSize * d.inputSize];
+    d.roi_buffer = ByteBuffer.allocateDirect(ROI_SIZE * ROI_SIZE * 3 * numBytesPerChannel);
+    d.roi_buffer.order(ByteOrder.nativeOrder());
+    d.intValues = new int[d.inputSize * d.inputSize];
 
     d.outputScores = new float[d.labels.size()];
     return d;
@@ -172,52 +180,39 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
     return softmaxConfidences;
   }
 
+  @RequiresApi(api = Build.VERSION_CODES.N)
+  private double[] softmax_double(float[] confidences) {
+    double[] c_double = new double[confidences.length];
+    for (int i = 0; i < confidences.length; i++) {
+      c_double[i] = confidences[i];
+    }
+    double total = Arrays.stream(c_double).map(Math::exp).sum();
+    return Arrays.stream(c_double).map(c -> c / total).toArray();
+  }
+
+  @RequiresApi(api = Build.VERSION_CODES.N)
   @Override
   public List<Recognition> recognizeImage(final Bitmap bitmap) {
     // Log this method so that it can be analyzed with systrace.
     Trace.beginSection("recognizeImage");
 
-    /*
-    Trace.beginSection("preprocessBitmap");
-    // Preprocess the image data from 0-255 int to normalized float based
-    // on the provided parameters.
-    bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-
-    imgData.rewind();
-    for (int i = 0; i < inputSize; ++i) {
-      for (int j = 0; j < inputSize; ++j) {
-        int pixelValue = intValues[i * inputSize + j];
-        if (isModelQuantized) {
-          // Quantized model
-          imgData.put((byte) ((pixelValue >> 16) & 0xFF));
-          imgData.put((byte) ((pixelValue >> 8) & 0xFF));
-          imgData.put((byte) (pixelValue & 0xFF));
-        } else { // Float model
-          imgData.putFloat((((pixelValue >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-          imgData.putFloat((((pixelValue >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-          imgData.putFloat(((pixelValue & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-        }
-      }
-    }
-    Trace.endSection(); // preprocessBitmap
-    */
-
     Trace.beginSection("run");
 
-    // TODO extract circles
+    // extract circles
 
     // bitmap to mat
-    Mat mat = new Mat();
-    Utils.bitmapToMat(bitmap, mat);
+    Mat img_mat = new Mat();
+    Utils.bitmapToMat(bitmap, img_mat);
     // rgb to gray
-    Imgproc.cvtColor(mat, mat, Imgproc.COLOR_BGR2GRAY);
-    org.opencv.imgproc.Imgproc.GaussianBlur(mat, mat, new Size(7,7), 1.5);
+    Mat img_mat_gray = new Mat();
+    Imgproc.cvtColor(img_mat, img_mat_gray, Imgproc.COLOR_BGR2GRAY);
+    org.opencv.imgproc.Imgproc.GaussianBlur(img_mat_gray, img_mat_gray, new Size(7,7), 1.5);
 
     Mat circles = new Mat();
-    Imgproc.HoughCircles(mat, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 400, 75);
+    Imgproc.HoughCircles(img_mat_gray, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 400, 75);
 
     final ArrayList<Recognition> recognitions = new ArrayList<>();
-    //float[][] inputArray = new float[1][inputSize * inputSize * 3];
+    float[][][][] inputArray = new float[1][ROI_SIZE][ROI_SIZE][3];
     float[][] outputArray = new float[1][labels.size()];
 
     int numDetections = circles.cols();
@@ -235,15 +230,31 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
               circleCenter[0] + radius,
               circleCenter[1] + radius);
 
-      // TODO rescale values to [0, 1]
-      // TODO rescale ROI to 180 x 180
 
-      //tfLite.run(roi, outputArray);
+      final Rect rect = new Rect((int) detection.left, (int) detection.top, 2 * (int) radius, 2 * (int) radius);
+
+      Mat img_roi = new Mat(img_mat, rect);
+      // map from [0, 255] to [0, 1]
+      img_roi.convertTo(img_roi, CvType.CV_32F, 1.0 / 255, 0);
+      // rescale ROI to 180 x 180
+      Imgproc.resize(img_roi, img_roi, new Size(ROI_SIZE, ROI_SIZE)); // TODO interpolation
+
+      for (int row = 0; row < ROI_SIZE; row++) {
+        for (int col = 0; col < ROI_SIZE; col++) {
+          double[] rgb = img_roi.get(row, col);
+          inputArray[0][row][col][0] = (float) rgb[0];
+          inputArray[0][row][col][1] = (float) rgb[1];
+          inputArray[0][row][col][2] = (float) rgb[2];
+        }
+      }
+
+      tfLite.run(inputArray, outputArray);
       
-      float[] softmaxConfidences = {0.2f, 0.4f, 0.8f, 0.1f, 0.3f, 0.1f};
-      //softmaxConfidences = softmax(outputArray[0]);
+      //float[] softmaxConfidences = {0.2f, 0.4f, 0.8f, 0.1f, 0.3f, 0.1f};
+      //double[] softmaxConfidences = softmax_double(outputArray[0]); // TODO softmax
+      float[] softmaxConfidences = outputArray[0];
       // TODO confidence
-      float confidence = 0.f;
+      double confidence = Double.MIN_VALUE;
       int argmax = 0;
       for (int j = 0; j < labels.size(); ++j) {
         if (softmaxConfidences[j] > confidence) {
@@ -252,7 +263,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
         }
       }
 
-      recognitions.add(new Recognition("" + i, labels.get(argmax), confidence, detection));
+      recognitions.add(new Recognition("" + i, labels.get(argmax), (float) confidence, detection));
     }
 
     Trace.endSection(); // run

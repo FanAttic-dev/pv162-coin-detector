@@ -8,7 +8,7 @@ import math
 
 TRAIN_DIR_PATH = "../IMAGES/Coins/CZK"
 ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK_test"
-CLASS = "1"
+CLASS = "50"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
