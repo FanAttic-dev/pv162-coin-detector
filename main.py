@@ -8,7 +8,7 @@ import math
 
 TRAIN_DIR_PATH = "../IMAGES/Coins/CZK"
 ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK_test"
-CLASS = "2"
+CLASS = "1"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
@@ -43,6 +43,12 @@ class Image:
         scale_factor = LONGER_EDGE_SIZE / longer_edge
         new_size = (int(h * scale_factor), int(w * scale_factor))
         self.img_color = cv2.resize(self.img_color, new_size)
+
+    def add_roi(self, roi):
+        # scale to COIN_SIZE x COIN_SIZE
+        roi_scaled = cv2.resize(roi, (COIN_SIZE, COIN_SIZE), interpolation=cv2.INTER_LANCZOS4)
+
+        self.rois.append(roi_scaled)
 
 
 def nothing(_):
@@ -155,7 +161,7 @@ def extract_circles(img_color, circles):
         x, y, r = circles[0][i]
         fig.add_subplot(fig_size, fig_size, i + 1)
         roi = img_color.img_color[int(y - r):int(y + r), int(x - r):int(x + r)]
-        img_color.rois.append(roi)
+        img_color.add_roi(roi)
         plt.imshow(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
 
     plt.show(block=False)
