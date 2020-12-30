@@ -1,3 +1,0 @@
-include ':opencv411'
-include ':app'
-rootProject.name = "OpenCVDemo"
