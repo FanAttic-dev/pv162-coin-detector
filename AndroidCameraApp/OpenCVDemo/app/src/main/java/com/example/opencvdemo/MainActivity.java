@@ -16,6 +16,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import org.opencv.android.OpenCVLoader;
+
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
@@ -45,6 +47,17 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, IMAGE_CAPTURE_CODE);
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (OpenCVLoader.initDebug()) {
+            Toast.makeText(this, "OpenCV initialized successfully", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "OpenCV could not be initialized", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
