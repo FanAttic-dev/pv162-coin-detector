@@ -19,8 +19,6 @@ import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.os.Build;
 import android.os.Trace;
@@ -40,8 +38,6 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -65,23 +61,19 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
   private static final String TAG = "TFLiteObjectDetectionAPIModelWithInterpreter";
 
   // Only return this many results.
-  private static final int NUM_DETECTIONS = 10;
-  // Float model
-  private static final float IMAGE_MEAN = 127.5f;
-  private static final float IMAGE_STD = 127.5f;
+  private static final int MAX_NUM_DETECTIONS = 10;
   // Number of threads in the java app
   private static final int NUM_THREADS = 4;
-  private boolean isModelQuantized;
   // Config values.
   private static final int ROI_SIZE = 180;
   // Pre-allocated buffers.
   private final List<String> labels = new ArrayList<>();
-  private int[] intValues;
   private int inputSize;
+  Mat img_mat;
+  org.opencv.imgproc.CLAHE clahe;
   // contains the scores of the detected coin
-  private float[] outputScores;
-
-  private ByteBuffer roi_buffer;
+  float[][][][] inputArray;
+  private float[][] outputScores;
 
   private MappedByteBuffer tfLiteModel;
   private Interpreter.Options tfLiteOptions;
@@ -117,20 +109,8 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       throws IOException {
     final TFLiteObjectDetectionAPIModel d = new TFLiteObjectDetectionAPIModel();
 
+    // load model
     MappedByteBuffer modelFile = loadModelFile(context.getAssets(), modelFilename);
-    /*
-    MetadataExtractor metadata = new MetadataExtractor(modelFile);
-    try (BufferedReader br =
-        new BufferedReader(
-            new InputStreamReader(
-                metadata.getAssociatedFile(labelFilename), Charset.defaultCharset()))) {
-      String line;
-      while ((line = br.readLine()) != null) {
-        Log.w(TAG, line);
-        d.labels.add(line);
-      }
-    }
-    */
     try (BufferedReader br =
                  new BufferedReader(
                          new InputStreamReader(context.getAssets().open(labelFilename)))) {
@@ -141,6 +121,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       }
     }
 
+    // set tflite options
     try {
       Interpreter.Options options = new Interpreter.Options();
       options.setNumThreads(NUM_THREADS);
@@ -152,19 +133,11 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       throw new RuntimeException(e);
     }
 
-    d.isModelQuantized = isQuantized;
-    // Pre-allocate buffers.
-    int numBytesPerChannel;
-    if (isQuantized) {
-      numBytesPerChannel = 1; // Quantized
-    } else {
-      numBytesPerChannel = 4; // Floating point
-    }
-    d.roi_buffer = ByteBuffer.allocateDirect(ROI_SIZE * ROI_SIZE * 3 * numBytesPerChannel);
-    d.roi_buffer.order(ByteOrder.nativeOrder());
-    d.intValues = new int[d.inputSize * d.inputSize];
-
-    d.outputScores = new float[d.labels.size()];
+    d.img_mat = new Mat(inputSize, inputSize, CvType.CV_8UC3);
+    // clahe
+    d.clahe = org.opencv.imgproc.Imgproc.createCLAHE(2, new Size(10, 10));
+    d.inputArray = new float[1][ROI_SIZE][ROI_SIZE][3];
+    d.outputScores = new float[1][d.labels.size()];
     return d;
   }
 
@@ -195,56 +168,77 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
   public List<Recognition> recognizeImage(final Bitmap bitmap) {
     // Log this method so that it can be analyzed with systrace.
     Trace.beginSection("recognizeImage");
-
     Trace.beginSection("run");
 
-    // extract circles
-
     // bitmap to mat
-    Mat img_mat = new Mat();
     Utils.bitmapToMat(bitmap, img_mat);
-    // rgb to gray
-    Mat img_mat_gray = new Mat();
-    Imgproc.cvtColor(img_mat, img_mat_gray, Imgproc.COLOR_BGR2GRAY);
-    org.opencv.imgproc.Imgproc.GaussianBlur(img_mat_gray, img_mat_gray, new Size(7,7), 1.5);
 
+    // bgr to hsv
+    Mat hsv_mat = new Mat(img_mat.width(), img_mat.height(), CvType.CV_8UC3);
+    Imgproc.cvtColor(img_mat, hsv_mat, Imgproc.COLOR_BGR2HSV);
+
+    List<Mat> hsv_split_roi = new ArrayList<>(3);
+    Size roi_size = new Size(ROI_SIZE, ROI_SIZE);
+    List<Mat> hsv_split = new ArrayList<>(3);
+    org.opencv.core.Core.split(hsv_mat, hsv_split);
+
+    Mat img_gray_blurred = new Mat(img_mat.width(), img_mat.height(), CvType.CV_8UC1);
+    org.opencv.imgproc.Imgproc.GaussianBlur(hsv_split.get(2), img_gray_blurred, new Size(7,7), 1.5);
+
+    // extract circles
     Mat circles = new Mat();
-    Imgproc.HoughCircles(img_mat_gray, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 400, 75);
+    Imgproc.HoughCircles(img_gray_blurred, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 400, 75);
 
     final ArrayList<Recognition> recognitions = new ArrayList<>();
     float[][][][] inputArray = new float[1][ROI_SIZE][ROI_SIZE][3];
     float[][] outputArray = new float[1][labels.size()];
 
-    int numDetections = circles.cols();
-
-    for (int i = 0; i < numDetections; ++i) {
+    for (int i = 0; (i < circles.cols()) && (i < MAX_NUM_DETECTIONS); ++i) {
       double circle[] = circles.get(0, i);
       if (circle == null)
         break;
 
       float circleCenter[] = {(float) circle[0], (float) circle[1]};
       float radius = (float) circle[2];
+
       final RectF detection = new RectF(
               circleCenter[0] - radius,
               circleCenter[1] - radius,
               circleCenter[0] + radius,
               circleCenter[1] + radius);
+      if (detection.left < 0 || detection.right >= img_mat.width() || detection.top < 0 || detection.bottom >= img_mat.height())
+        break;
 
+      final Rect rect = new Rect(
+              (int) detection.left,
+              (int) detection.top,
+              2 * (int) radius,
+              2 * (int) radius);
 
-      final Rect rect = new Rect((int) detection.left, (int) detection.top, 2 * (int) radius, 2 * (int) radius);
+      // extract roi
+      for (int j = 0; j < hsv_split.size(); j++) {
+        hsv_split_roi.add(new Mat(hsv_split.get(j), rect));
+      }
 
-      Mat img_roi = new Mat(img_mat, rect);
+      // histogram equalization on the `value` component of HSV
+      clahe.apply(hsv_split_roi.get(2), hsv_split_roi.get(2));
+
+      // HSV -> RGB
+      Mat img_roi = new Mat(rect.width, rect.height, CvType.CV_8UC3);
+      org.opencv.core.Core.merge(hsv_split_roi, img_roi);
+      org.opencv.imgproc.Imgproc.cvtColor(img_roi, img_roi, Imgproc.COLOR_HSV2BGR);
+      hsv_split_roi.clear();
       // map from [0, 255] to [0, 1]
-      img_roi.convertTo(img_roi, CvType.CV_32F, 1.0 / 255, 0);
+      img_roi.convertTo(img_roi, CvType.CV_32FC3, 1.0 / 255, 0);
       // rescale ROI to 180 x 180
-      Imgproc.resize(img_roi, img_roi, new Size(ROI_SIZE, ROI_SIZE)); // TODO interpolation
+      Imgproc.resize(img_roi, img_roi, roi_size); // TODO interpolation
 
       for (int row = 0; row < ROI_SIZE; row++) {
         for (int col = 0; col < ROI_SIZE; col++) {
           double[] rgb = img_roi.get(row, col);
-          inputArray[0][row][col][0] = (float) rgb[0];
-          inputArray[0][row][col][1] = (float) rgb[1];
-          inputArray[0][row][col][2] = (float) rgb[2];
+          inputArray[0][row][col][0] = (float) rgb[0]; // R
+          inputArray[0][row][col][1] = (float) rgb[1]; // G
+          inputArray[0][row][col][2] = (float) rgb[2]; // B
         }
       }
 
@@ -263,7 +257,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
         }
       }
 
-      recognitions.add(new Recognition("" + i, labels.get(argmax), (float) confidence, detection));
+      recognitions.add(new Recognition("" + i, labels.get(argmax), 1.f, detection));
     }
 
     Trace.endSection(); // run
