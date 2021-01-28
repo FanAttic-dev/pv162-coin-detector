@@ -6,14 +6,13 @@ import matplotlib as mpl
 from matplotlib.widgets import Button
 import math
 
-TRAIN_DIR_PATH = "../IMAGES/Coins/CZK"
-ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK_test"
+TRAIN_DIR_PATH = "../IMAGES/Coins/CZK/train/03Brno"
+ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK/original/03Brno"
 CLASS = "50"
 LONGER_EDGE_SIZE = 1024
 WINDOW_NAME = 'FindCircles'
 COIN_SIZE = 180
 EQUALIZE_HIST = True
-
 
 class Image:
     def __init__(self, image_name, dir_path, orig_dir_path, resize_image=True, equalize_hist=True):
@@ -45,6 +44,9 @@ class Image:
         self.img_color = cv2.resize(self.img_color, new_size)
 
     def add_roi(self, roi):
+        if roi.size == 0:
+            return
+
         # scale to COIN_SIZE x COIN_SIZE
         roi_scaled = cv2.resize(roi, (COIN_SIZE, COIN_SIZE), interpolation=cv2.INTER_LANCZOS4)
 
@@ -56,10 +58,10 @@ def nothing(_):
 
 
 def create_trackbars():
-    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.createTrackbar('MinDist', WINDOW_NAME, 100, 800, nothing)
     cv2.createTrackbar('CannyHigh', WINDOW_NAME, 400, 800, nothing)
-    cv2.createTrackbar('AccTh', WINDOW_NAME, 75, 200, nothing)
+    cv2.createTrackbar('AccTh', WINDOW_NAME, 85, 200, nothing)
     cv2.createTrackbar('ClaheClipLimit', WINDOW_NAME, 2, 60, nothing)
 
 
@@ -116,12 +118,12 @@ def find_circles_in_image(img, min_dist, canny_high, acc_threshold, show_edges=T
 
 def draw_circles_into_image(img_color, circles):
     if circles is None:
-        return img_color
+        return img_color.img_color
 
     img_with_circles = img_color.img_color.copy()
 
     circles = np.uint16(np.round(circles))
-    for (x, y, r) in circles[0, :]:
+    for (x, y, r) in circles[0, 0:6]:
         # outer circle
         cv2.circle(img_with_circles, (x, y), r, (0, 255, 0), 2)
         # circle center
@@ -142,6 +144,9 @@ def save_circles(img):
 
 
 def extract_circles(img_color, circles):
+    if circles is None:
+        return
+
     circles_count = len(circles[0])
 
     # init figure
@@ -169,7 +174,7 @@ def extract_circles(img_color, circles):
 
 def process_class(class_name):
     class_dir_path = TRAIN_DIR_PATH + "/" + class_name
-    class_orig_dir_path = ORIGINAL_DIR_PATH + "/original/" + class_name
+    class_orig_dir_path = ORIGINAL_DIR_PATH + "/" + class_name
 
     i = 0
     class_image_names = os.listdir(class_orig_dir_path)

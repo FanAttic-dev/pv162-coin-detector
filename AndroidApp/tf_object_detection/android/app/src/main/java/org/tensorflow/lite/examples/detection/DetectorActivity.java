@@ -50,15 +50,14 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private static final Logger LOGGER = new Logger();
 
   // Configuration values for the prepackaged SSD model.
-  private static final int TF_OD_API_INPUT_SIZE = 800;
-  private static final boolean TF_OD_API_IS_QUANTIZED = false;
   private static final String TF_OD_API_MODEL_FILE = "model.tflite";
   private static final String TF_OD_API_LABELS_FILE = "labels.txt";
   private static final DetectorMode MODE = DetectorMode.TF_OD_API;
   // Minimum detection confidence to track a detection.
   private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
   private static final boolean MAINTAIN_ASPECT = true;
-  private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
+  private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 640);
+  private static final int IMAGE_SIZE = 640;
   private static final boolean SAVE_PREVIEW_BITMAP = false;
   private static final float TEXT_SIZE_DIP = 10;
   OverlayView trackingOverlay;
@@ -92,16 +91,13 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     tracker = new MultiBoxTracker(this);
 
-    int cropSize = TF_OD_API_INPUT_SIZE;
-
     try {
       detector =
           TFLiteObjectDetectionAPIModel.create(
               this,
               TF_OD_API_MODEL_FILE,
               TF_OD_API_LABELS_FILE,
-              TF_OD_API_INPUT_SIZE,
-              TF_OD_API_IS_QUANTIZED);
+              IMAGE_SIZE);
     } catch (final IOException e) {
       e.printStackTrace();
       LOGGER.e(e, "Exception initializing Detector!");
@@ -120,12 +116,12 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     LOGGER.i("Initializing at size %dx%d", previewWidth, previewHeight);
     rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Config.ARGB_8888);
-    croppedBitmap = Bitmap.createBitmap(cropSize, cropSize, Config.ARGB_8888);
+    croppedBitmap = Bitmap.createBitmap(IMAGE_SIZE, IMAGE_SIZE, Config.ARGB_8888);
 
     frameToCropTransform =
         ImageUtils.getTransformationMatrix(
             previewWidth, previewHeight,
-            cropSize, cropSize,
+            IMAGE_SIZE, IMAGE_SIZE,
             sensorOrientation, MAINTAIN_ASPECT);
 
     cropToFrameTransform = new Matrix();

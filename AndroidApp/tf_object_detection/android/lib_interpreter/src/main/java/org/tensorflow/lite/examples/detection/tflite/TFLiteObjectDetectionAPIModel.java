@@ -68,7 +68,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
   private static final int ROI_SIZE = 180;
   // Pre-allocated buffers.
   private final List<String> labels = new ArrayList<>();
-  private int inputSize;
+  private Size inputSize;
   Mat img_mat;
   org.opencv.imgproc.CLAHE clahe;
   // contains the scores of the detected coin
@@ -98,14 +98,12 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
    * @param modelFilename The model file path relative to the assets folder
    * @param labelFilename The label file path relative to the assets folder
    * @param inputSize The size of image input
-   * @param isQuantized Boolean representing model is quantized or not
    */
   public static Detector create(
       final Context context,
       final String modelFilename,
       final String labelFilename,
-      final int inputSize,
-      final boolean isQuantized)
+      final int inputSize)
       throws IOException {
     final TFLiteObjectDetectionAPIModel d = new TFLiteObjectDetectionAPIModel();
 
@@ -128,12 +126,12 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       d.tfLite = new Interpreter(modelFile, options);
       d.tfLiteModel = modelFile;
       d.tfLiteOptions = options;
-      d.inputSize = inputSize;
+      d.inputSize = new Size(inputSize, inputSize);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
 
-    d.img_mat = new Mat(inputSize, inputSize, CvType.CV_8UC3);
+    d.img_mat = new Mat(d.inputSize, CvType.CV_8UC3);
     // clahe
     d.clahe = org.opencv.imgproc.Imgproc.createCLAHE(2, new Size(10, 10));
     d.inputArray = new float[1][ROI_SIZE][ROI_SIZE][3];
@@ -176,18 +174,18 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
     // bgr to hsv
     Mat hsv_mat = new Mat(img_mat.width(), img_mat.height(), CvType.CV_8UC3);
     Imgproc.cvtColor(img_mat, hsv_mat, Imgproc.COLOR_BGR2HSV);
-
     List<Mat> hsv_split_roi = new ArrayList<>(3);
     Size roi_size = new Size(ROI_SIZE, ROI_SIZE);
     List<Mat> hsv_split = new ArrayList<>(3);
     org.opencv.core.Core.split(hsv_mat, hsv_split);
 
+    // blur
     Mat img_gray_blurred = new Mat(img_mat.width(), img_mat.height(), CvType.CV_8UC1);
-    org.opencv.imgproc.Imgproc.GaussianBlur(hsv_split.get(2), img_gray_blurred, new Size(7,7), 1.5);
+    org.opencv.imgproc.Imgproc.GaussianBlur(hsv_split.get(2), img_gray_blurred, new Size(7,7), 2);
 
     // extract circles
     Mat circles = new Mat();
-    Imgproc.HoughCircles(img_gray_blurred, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 400, 75);
+    Imgproc.HoughCircles(img_gray_blurred, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 300, 75);
 
     final ArrayList<Recognition> recognitions = new ArrayList<>();
     float[][][][] inputArray = new float[1][ROI_SIZE][ROI_SIZE][3];
@@ -206,6 +204,8 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
               circleCenter[1] - radius,
               circleCenter[0] + radius,
               circleCenter[1] + radius);
+
+      // check bounds
       if (detection.left < 0 || detection.right >= img_mat.width() || detection.top < 0 || detection.bottom >= img_mat.height())
         break;
 
@@ -223,16 +223,19 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       // histogram equalization on the `value` component of HSV
       clahe.apply(hsv_split_roi.get(2), hsv_split_roi.get(2));
 
-      // HSV -> RGB
+      // HSV -> BGR
       Mat img_roi = new Mat(rect.width, rect.height, CvType.CV_8UC3);
       org.opencv.core.Core.merge(hsv_split_roi, img_roi);
       org.opencv.imgproc.Imgproc.cvtColor(img_roi, img_roi, Imgproc.COLOR_HSV2BGR);
       hsv_split_roi.clear();
+
       // map from [0, 255] to [0, 1]
       img_roi.convertTo(img_roi, CvType.CV_32FC3, 1.0 / 255, 0);
+
       // rescale ROI to 180 x 180
       Imgproc.resize(img_roi, img_roi, roi_size); // TODO interpolation
 
+      // copy to input array
       for (int row = 0; row < ROI_SIZE; row++) {
         for (int col = 0; col < ROI_SIZE; col++) {
           double[] rgb = img_roi.get(row, col);
@@ -243,9 +246,12 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       }
 
       tfLite.run(inputArray, outputArray);
-      
+
+      // find the best matching class
+
       //float[] softmaxConfidences = {0.2f, 0.4f, 0.8f, 0.1f, 0.3f, 0.1f};
       //double[] softmaxConfidences = softmax_double(outputArray[0]); // TODO softmax
+
       float[] softmaxConfidences = outputArray[0];
       // TODO confidence
       double confidence = Double.MIN_VALUE;
@@ -257,7 +263,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
         }
       }
 
-      recognitions.add(new Recognition("" + i, labels.get(argmax), 1.f, detection));
+      recognitions.add(new Recognition("" + i, labels.get(argmax), (float) confidence, detection));
     }
 
     Trace.endSection(); // run
