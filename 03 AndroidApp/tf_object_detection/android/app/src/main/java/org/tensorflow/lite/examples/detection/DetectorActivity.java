@@ -57,7 +57,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
   private static final boolean MAINTAIN_ASPECT = true;
   private static final Size DESIRED_PREVIEW_SIZE = new Size(1024, 738);
-  private static final Size IMAGE_SIZE = new Size(738, 1024);
+  private static final Size IMAGE_SIZE = new Size(1024, 738);
   private static final boolean SAVE_PREVIEW_BITMAP = false;
   private static final float TEXT_SIZE_DIP = 10;
   OverlayView trackingOverlay;
@@ -116,14 +116,14 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     LOGGER.i("Initializing at size %dx%d", previewWidth, previewHeight);
     rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Config.ARGB_8888);
-    croppedBitmap = Bitmap.createBitmap(IMAGE_SIZE.getWidth(), IMAGE_SIZE.getHeight(), Config.ARGB_8888);
+    croppedBitmap = Bitmap.createBitmap(IMAGE_SIZE.getHeight(), IMAGE_SIZE.getWidth(), Config.ARGB_8888);
+
 
     frameToCropTransform =
         ImageUtils.getTransformationMatrix(
             previewWidth, previewHeight,
-            IMAGE_SIZE.getWidth(), IMAGE_SIZE.getHeight(),
+            IMAGE_SIZE.getHeight(), IMAGE_SIZE.getWidth(),
             sensorOrientation, MAINTAIN_ASPECT);
-
     cropToFrameTransform = new Matrix();
     frameToCropTransform.invert(cropToFrameTransform);
 
