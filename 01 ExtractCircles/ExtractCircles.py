@@ -6,7 +6,7 @@ import matplotlib as mpl
 from matplotlib.widgets import Button
 import math
 
-TRAIN_DIR_PATH = "../IMAGES/Coins/CZK/train/03Brno"
+TRAIN_DIR_PATH = "../IMAGES/Coins/CZK/train/04Brno"
 ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK/original/04Brno"
 CLASS = "1"
 
