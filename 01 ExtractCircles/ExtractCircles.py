@@ -6,8 +6,8 @@ import matplotlib as mpl
 from matplotlib.widgets import Button
 import math
 
-TRAIN_DIR_PATH = "../IMAGES/Coins/CZK/train/04Brno"
-ORIGINAL_DIR_PATH = "../IMAGES/Coins/CZK/original/04Brno"
+TRAIN_DIR_PATH = "../../IMAGES/Coins/CZK/train/03Brno"
+ORIGINAL_DIR_PATH = "../../IMAGES/Coins/CZK/original/03Brno"
 CLASS = "1"
 
 WINDOW_NAME = 'FindCircles'
@@ -113,9 +113,9 @@ def find_circles_in_image(img, min_dist, canny_high, acc_threshold, show_edges=T
     img_gray = cv2.cvtColor(img.img_color, cv2.COLOR_BGR2GRAY)
 
     # blur
-    img_gray = cv2.GaussianBlur(img_gray, (7, 7), 1.5)
+    img_gray = cv2.GaussianBlur(img_gray, (7, 7), 2)
 
-    return cv2.HoughCircles(img_gray, cv2.HOUGH_GRADIENT, 1.5, minDist=min_dist, param1=canny_high, param2=acc_threshold)
+    return cv2.HoughCircles(img_gray, cv2.HOUGH_GRADIENT, 2, minDist=min_dist, param1=canny_high, param2=acc_threshold)
 
 
 def draw_circles_into_image(img_color, circles):
