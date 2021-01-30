@@ -103,7 +103,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       final Context context,
       final String modelFilename,
       final String labelFilename,
-      final int inputSize)
+      final Size inputSize)
       throws IOException {
     final TFLiteObjectDetectionAPIModel d = new TFLiteObjectDetectionAPIModel();
 
@@ -126,7 +126,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
       d.tfLite = new Interpreter(modelFile, options);
       d.tfLiteModel = modelFile;
       d.tfLiteOptions = options;
-      d.inputSize = new Size(inputSize, inputSize);
+      d.inputSize = inputSize;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
