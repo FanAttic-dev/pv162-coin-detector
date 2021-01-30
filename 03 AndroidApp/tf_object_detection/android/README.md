@@ -1,0 +1,1 @@
+This is a modified version of the  [**TensorFlow Lite Object Detection Android Demo**](https://github.com/tensorflow/examples/tree/master/lite/examples/object_detection/android).
