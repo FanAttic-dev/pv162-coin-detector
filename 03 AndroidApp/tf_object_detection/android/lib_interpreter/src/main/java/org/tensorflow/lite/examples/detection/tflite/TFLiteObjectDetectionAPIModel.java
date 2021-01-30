@@ -20,11 +20,8 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
-import android.os.Build;
 import android.os.Trace;
 import android.util.Log;
-
-import androidx.annotation.RequiresApi;
 
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
@@ -139,29 +136,6 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
     return d;
   }
 
-  private float[] softmax(float[] confidences) {
-    float[] softmaxConfidences = new float[confidences.length];
-    float total = 0;
-    for (int i = 0; i < confidences.length; ++i) {
-      total += Math.exp(confidences[i]);
-    }
-    for (int i = 0; i < confidences.length; ++i) {
-      softmaxConfidences[i] = confidences[i] / total;
-    }
-    return softmaxConfidences;
-  }
-
-  @RequiresApi(api = Build.VERSION_CODES.N)
-  private double[] softmax_double(float[] confidences) {
-    double[] c_double = new double[confidences.length];
-    for (int i = 0; i < confidences.length; i++) {
-      c_double[i] = confidences[i];
-    }
-    double total = Arrays.stream(c_double).map(Math::exp).sum();
-    return Arrays.stream(c_double).map(c -> c / total).toArray();
-  }
-
-  @RequiresApi(api = Build.VERSION_CODES.N)
   @Override
   public List<Recognition> recognizeImage(final Bitmap bitmap) {
     // Log this method so that it can be analyzed with systrace.
@@ -185,7 +159,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
 
     // extract circles
     Mat circles = new Mat();
-    Imgproc.HoughCircles(img_gray_blurred, circles, Imgproc.HOUGH_GRADIENT, 2, 100, 300, 75);
+    Imgproc.HoughCircles(img_gray_blurred, circles, Imgproc.HOUGH_GRADIENT, 2, 150, 200, 85);
 
     final ArrayList<Recognition> recognitions = new ArrayList<>();
     float[][][][] inputArray = new float[1][ROI_SIZE][ROI_SIZE][3];
@@ -249,11 +223,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
 
       // find the best matching class
 
-      //float[] softmaxConfidences = {0.2f, 0.4f, 0.8f, 0.1f, 0.3f, 0.1f};
-      //double[] softmaxConfidences = softmax_double(outputArray[0]); // TODO softmax
-
       float[] softmaxConfidences = outputArray[0];
-      // TODO confidence
       double confidence = Double.MIN_VALUE;
       int argmax = 0;
       for (int j = 0; j < labels.size(); ++j) {
