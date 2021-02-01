@@ -56,7 +56,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   // Minimum detection confidence to track a detection.
   private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
   private static final boolean MAINTAIN_ASPECT = true;
-  private static final Size DESIRED_PREVIEW_SIZE = new Size(1024, 738);
+  private static final Size DESIRED_PREVIEW_SIZE = new Size(738, 1024);
   private static final Size IMAGE_SIZE = new Size(738, 1024);
   private static final boolean SAVE_PREVIEW_BITMAP = false;
   private static final float TEXT_SIZE_DIP = 10;
