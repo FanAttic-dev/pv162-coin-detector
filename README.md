@@ -2,7 +2,7 @@
 
 This is a set of modules for CZK coin detection on Android.
 
-#### TODO Screenshot
+<img src="./Screenshots/Android_screenshot_1.jpg" alt="Android_screenshot_1" style="zoom: 33%;" />
 
 The project consists of three modules:
 
@@ -13,6 +13,12 @@ This is a python file which takes a class of original photos (`CLASS`) as input 
 ### 02 CNN
 
 Here, you can find a jupyter notebook, which trains a simple CNN model and export it into a *model.tflite* file for further use.
+
+**CNN Architecture:**
+
+#### ![CNN_architecture](./Screenshots/CNN_architecture.png)
+
+
 
 ### 03 Android App
 
