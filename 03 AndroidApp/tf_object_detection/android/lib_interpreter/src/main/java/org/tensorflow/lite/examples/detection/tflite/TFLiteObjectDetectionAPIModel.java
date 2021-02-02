@@ -72,7 +72,7 @@ public class TFLiteObjectDetectionAPIModel implements Detector {
 
   private static final int CANNY_HIGH = 200;
   private static final int HOUGH_ACC_THRESHOLD = 85;
-  private static final int HOUGH_MIN_DIST = 85;
+  private static final int HOUGH_MIN_DIST = 150;
   private static final int GAUSS_SIGMA = 3;
 
   // contains the scores of the detected coin

@@ -2,7 +2,7 @@
 
 This is a set of modules for CZK coin detection on Android.
 
-<img src="./Screenshots/Android_screenshot_1.jpg" alt="Android_screenshot_1" style="zoom: 33%;" />
+<img src="./Screenshots/Android/03.jpg" alt="Android_screenshot_1" style="zoom: 20%;" />
 
 The project consists of three modules:
 

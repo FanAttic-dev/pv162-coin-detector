@@ -7,8 +7,8 @@ from matplotlib.widgets import Button
 import math
 
 TRAIN_DIR_PATH = "../../IMAGES/Coins/CZK/train/03Brno"
-ORIGINAL_DIR_PATH = "../../IMAGES/Coins/CZK/original/03Brno"
-CLASS = "1"
+ORIGINAL_DIR_PATH = "../../IMAGES/Coins/CZK/original/04Brno"
+CLASS = "2"
 
 WINDOW_NAME = 'FindCircles'
 LONGER_EDGE_SIZE = 1024
@@ -61,10 +61,11 @@ def nothing(_):
 
 def create_trackbars():
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
-    cv2.createTrackbar('MinDist', WINDOW_NAME, 100, 800, nothing)
-    cv2.createTrackbar('CannyHigh', WINDOW_NAME, 400, 800, nothing)
-    cv2.createTrackbar('AccTh', WINDOW_NAME, 85, 200, nothing)
-    cv2.createTrackbar('ClaheClipLimit', WINDOW_NAME, 2, 60, nothing)
+    cv2.createTrackbar('HoughAccTh', WINDOW_NAME, 85, 200, nothing)
+    cv2.createTrackbar('HoughMinDist', WINDOW_NAME, 150, 500, nothing)
+    cv2.createTrackbar('CannyHigh', WINDOW_NAME, 200, 800, nothing)
+    cv2.createTrackbar('GaussSigma', WINDOW_NAME, 3, 10, nothing)
+    cv2.createTrackbar('ClaheClipLimit', WINDOW_NAME, 2, 20, nothing)
 
 
 def init_mpl():
@@ -83,12 +84,12 @@ def detect_circles(img, show_edges=False):
 
     while True:
         # get params
-        min_dist = cv2.getTrackbarPos('MinDist', WINDOW_NAME)
+        min_dist = cv2.getTrackbarPos('HoughMinDist', WINDOW_NAME)
         canny_high = cv2.getTrackbarPos('CannyHigh', WINDOW_NAME)
-        acc_threshold = cv2.getTrackbarPos('AccTh', WINDOW_NAME)
+        acc_threshold = cv2.getTrackbarPos('HoughAccTh', WINDOW_NAME)
 
         if show_edges:
-            edges = cv2.Canny(img.img_gray, canny_high / 2, canny_high)
+            edges = cv2.Canny(blur(img.img_gray), canny_high / 2, canny_high)
             cv2.imshow("CannyWindow", edges)
 
         # find circles
@@ -108,12 +109,17 @@ def detect_circles(img, show_edges=False):
     return key
 
 
+def blur(img):
+    sigma = cv2.getTrackbarPos("GaussSigma", WINDOW_NAME)
+    return cv2.GaussianBlur(img, (0, 0), sigma)
+
+
 def find_circles_in_image(img, min_dist, canny_high, acc_threshold, show_edges=True):
     # to grayscale
     img_gray = cv2.cvtColor(img.img_color, cv2.COLOR_BGR2GRAY)
 
     # blur
-    img_gray = cv2.GaussianBlur(img_gray, (7, 7), 2)
+    img_gray = blur(img_gray)
 
     return cv2.HoughCircles(img_gray, cv2.HOUGH_GRADIENT, 2, minDist=min_dist, param1=canny_high, param2=acc_threshold)
 
