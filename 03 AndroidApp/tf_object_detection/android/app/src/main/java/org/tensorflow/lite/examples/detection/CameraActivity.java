@@ -87,6 +87,7 @@ public abstract class CameraActivity extends AppCompatActivity
   private ImageView plusImageView, minusImageView;
   private SwitchCompat apiSwitchCompat;
   private TextView threadsTextView;
+  private TextView sumTextView;
 
   @Override
   protected void onCreate(final Bundle savedInstanceState) {
@@ -113,6 +114,7 @@ public abstract class CameraActivity extends AppCompatActivity
     gestureLayout = findViewById(R.id.gesture_layout);
     sheetBehavior = BottomSheetBehavior.from(bottomSheetLayout);
     bottomSheetArrowImageView = findViewById(R.id.bottom_sheet_arrow);
+    sumTextView = findViewById(R.id.sumTextView);
 
     ViewTreeObserver vto = gestureLayout.getViewTreeObserver();
     vto.addOnGlobalLayoutListener(
@@ -545,6 +547,10 @@ public abstract class CameraActivity extends AppCompatActivity
 
   protected void showInference(String inferenceTime) {
     inferenceTimeTextView.setText(inferenceTime);
+  }
+
+  protected void showSum(int sum) {
+    sumTextView.setText(sum > 0 ? String.format("%3d CZK", sum) : "");
   }
 
   protected abstract void processImage();

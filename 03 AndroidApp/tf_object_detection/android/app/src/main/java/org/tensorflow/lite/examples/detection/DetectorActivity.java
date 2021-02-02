@@ -29,6 +29,7 @@ import android.media.ImageReader.OnImageAvailableListener;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private static final String TF_OD_API_LABELS_FILE = "labels.txt";
   private static final DetectorMode MODE = DetectorMode.TF_OD_API;
   // Minimum detection confidence to track a detection.
-  private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
+  private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.75f;
   private static final boolean MAINTAIN_ASPECT = true;
   private static final Size DESIRED_PREVIEW_SIZE = new Size(738, 1024);
   private static final Size IMAGE_SIZE = new Size(738, 1024);
@@ -66,6 +67,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private Detector detector;
 
   private long lastProcessingTimeMs;
+  private int coinSum;
   private Bitmap rgbFrameBitmap = null;
   private Bitmap croppedBitmap = null;
   private Bitmap cropCopyBitmap = null;
@@ -80,6 +82,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private MultiBoxTracker tracker;
 
   private BorderedText borderedText;
+  private TextView sumTextView;
 
   @Override
   public void onPreviewSizeChosen(final Size size, final int rotation) {
@@ -125,6 +128,8 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             sensorOrientation, MAINTAIN_ASPECT);
     cropToFrameTransform = new Matrix();
     frameToCropTransform.invert(cropToFrameTransform);
+
+    sumTextView = findViewById(R.id.sumTextView);
 
     trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
     trackingOverlay.addCallback(
@@ -192,6 +197,8 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             final List<Detector.Recognition> mappedRecognitions =
                 new ArrayList<Detector.Recognition>();
 
+            coinSum = 0;
+
             for (final Detector.Recognition result : results) {
               final RectF location = result.getLocation();
               if (location != null && result.getConfidence() >= minimumConfidence) {
@@ -201,6 +208,12 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
                 result.setLocation(location);
                 mappedRecognitions.add(result);
+
+                try {
+                  coinSum += Integer.parseInt(result.getTitle());
+                } catch (NumberFormatException e) {
+                  LOGGER.e("Unable to convert recognition title " + result.getTitle() + " to int");
+                }
               }
             }
 
@@ -216,6 +229,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                     showFrameInfo(previewWidth + "x" + previewHeight);
                     showCropInfo(cropCopyBitmap.getWidth() + "x" + cropCopyBitmap.getHeight());
                     showInference(lastProcessingTimeMs + "ms");
+                    showSum(coinSum);
                   }
                 });
           }
