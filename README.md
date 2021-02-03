@@ -15,6 +15,8 @@
 
 This is a python script which takes a class of original photos (`CLASS`) as input (`ORIGINAL_DIR_PATH`), extracts circles from these photos, and stores them into the appropriate class folder in `TRAIN_DIR_PATH`.
 
+<img src="./Screenshots/Dataset02.png" alt="Dataset" width="1000" />
+
 ### 02 CNN
 
 Here, you can find a Jupyter Notebook, which trains a simple CNN model using the prepared dataset and exports it into a *model.tflite* file for further use.
@@ -32,6 +34,8 @@ This module contains two projects:
 - **tf_object_detection** - this is the [**TensorFlow Lite Object Detection Android Demo**](https://github.com/tensorflow/examples/tree/master/lite/examples/object_detection/android) customized for the purposes of this project
 - **OpenCVDemo** - this is just a demo project for getting familiar with importing OpenCV to Android Studio
   - it is not relevant for the project at the moment, but I decided to still keep it in this repository in case of not using the Tensorflow template and implementing it manually by myself.
+
+<img src="./Screenshots/Android/01.jpg" alt="Dataset" width="300" />
 
 
 
